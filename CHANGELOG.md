@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+- **The minimum Rust version is 1.85**, not 1.82: `ureq` 3.4 and `zeroize` 1.9 need it, so
+  earlier releases claimed a version they could not be built with. CI now checks it. No code
+  change.
+
 ## 0.2.2
 
 - **`Options::budget` now bounds each provider request**, not only the waits between retries:
