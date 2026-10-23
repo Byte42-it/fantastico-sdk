@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+- **`Options::budget` now bounds each provider request**, not only the waits between retries:
+  every request's timeout is what is left of the budget, at most 90 seconds. When nothing is left,
+  `chat_completion` returns `TIMEOUT` (504) without sending the request. Minting a key is not
+  counted, as before.
+- README: a new "Keys and credit" section on what fantastico.cc does with runtime keys. Unspent
+  credit returns to the account when a key expires or is revoked, so a key the client replaces
+  is not lost money, and `revoke_key` only brings that forward. "Residual credit" moved there.
+
 ## 0.2.1
 
 - The source is public at <https://github.com/Byte42-it/fantastico-sdk>, and `repository` in the

@@ -1,6 +1,6 @@
 [package]
 name = "fantastico-sdk"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 rust-version = "1.82"
 description = "One prepaid credit for every major LLM: a Rust client for FANTASTICO that sends OpenAI-style chat completions to every major model from a single account, with spending caps and balance tracking"

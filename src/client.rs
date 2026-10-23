@@ -46,7 +46,9 @@ pub struct Options {
     pub referer: String,
     /// How rate-limited or overloaded requests are retried.
     pub retry: RetryConfig,
-    /// The longest a single [`Fantastico::chat_completion`] may take, retries included.
+    /// The longest a single [`Fantastico::chat_completion`] may spend on the provider, retries
+    /// included: every request and every wait between them ends by then. Minting a key, when
+    /// one is needed, is not counted.
     pub budget: Duration,
 }
 
@@ -591,6 +593,7 @@ impl Fantastico {
     /// - `LLM_PROVIDER_ERROR` when a new key didn't help either, `INTERNAL_ERROR` for an
     ///   unclassified provider failure.
     /// - `EMPTY_COMPLETION` when the model used its whole output budget and returned nothing.
+    /// - `TIMEOUT` when [`Options::budget`] ran out before a request could be sent.
     /// - `NETWORK_ERROR` or `INVALID_RESPONSE` for transport and protocol failures.
     pub fn chat_completion(&mut self, request: &Value) -> Result<Value, Error> {
         let Some(obj) = request.as_object() else {
@@ -701,7 +704,7 @@ impl Fantastico {
             }
         }
         let max_tokens = body.get("max_tokens").and_then(Value::as_u64);
-        let request = HttpRequest {
+        let mut request = HttpRequest {
             method: Method::Post,
             url: format!("{base_url}/chat/completions"),
             headers: vec![
@@ -715,6 +718,16 @@ impl Fantastico {
         };
         let mut retries = 0;
         loop {
+            // The budget bounds the requests too, not only the waits between them.
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(Failure::Final(Error::new(
+                    "The request ran out of Options::budget before reaching the provider",
+                    "TIMEOUT",
+                    504,
+                )));
+            }
+            request.timeout = left.min(PROVIDER_TIMEOUT);
             let outcome = match self.transport.send(&request) {
                 Ok(res) => classify(&res, model, max_tokens),
                 Err(e) => Err(Failure::Final(Error::new(

@@ -669,6 +669,34 @@ fn client_with(opts: Options, script: Vec<(&'static str, HttpResponse)>) -> (Fan
 }
 
 #[test]
+fn the_budget_bounds_each_request() {
+    // The provider request may not outlast the budget, whatever the transport's own timeout.
+    let opts = Options {
+        budget: Duration::from_secs(5),
+        ..Options::default()
+    };
+    let (mut c, log) = client_with(
+        opts,
+        vec![
+            ("/api/edge/key", mint(5.0, "r1")),
+            ("/chat/completions", completion("ok")),
+        ],
+    );
+    c.chat_completion(&ask()).unwrap();
+    let timeout = log.lock().unwrap()[1].timeout;
+    assert!(timeout <= Duration::from_secs(5), "{timeout:?}");
+
+    // A spent budget sends nothing to the provider: the key is minted, the request isn't.
+    let opts = Options {
+        budget: Duration::ZERO,
+        ..Options::default()
+    };
+    let (mut c, log) = client_with(opts, vec![("/api/edge/key", mint(5.0, "r1"))]);
+    assert_eq!(c.chat_completion(&ask()).unwrap_err().code, "TIMEOUT");
+    assert_eq!(log.lock().unwrap().len(), 1);
+}
+
+#[test]
 fn the_request_goes_where_the_mint_says() {
     // A trailing slash on the mint's address is dropped, not doubled.
     let (mut c, log) = client(

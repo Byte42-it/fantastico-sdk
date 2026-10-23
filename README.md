@@ -44,6 +44,27 @@ println!("{}", reply["choices"][0]["message"]["content"]);
 
 - **Errors**: every failure is a `fantastico_sdk::Error` with a machine-readable `code` and a `status`. The crate never panics on malformed replies.
 
+## Keys and credit
+
+The lifecycle of runtime keys and of the credit behind them is run by fantastico.cc, not by this crate. The client only asks for a key, uses it, and asks for another when it stops working.
+
+- **Minting reserves credit.** Each runtime key holds a reservation (its cap) taken from the account's available credit. The cap and the key's lifetime come from the project's plan. An account can have a few keys open at once, up to a limit set by the plan.
+- **Actual spend is measured by the service**, from the provider's usage, while the key is in use. What the client reports is not used for billing.
+- **Unspent credit comes back on its own.** When a key expires, the service disables it and settles it a few minutes later: the measured spend is charged and the rest of the reservation returns to the account's available credit. A key the client drops (after a `401`/`402`, or because it is about to expire) is not lost money: it settles the same way.
+- **`revoke_key` only brings the settlement forward.** It returns the same amount, sooner, and frees one of the account's open-key slots. You never need to call it to get credit back.
+- **Running out of a key is not running out of credit.** `max_tokens` is sized on the key's cap, so a key that is nearly used up can answer `402`; the client then mints a fresh key from the account's remaining credit and retries once. If the account can't fund a new key, the mint fails and that error is returned.
+
+### Residual credit
+
+`config().balance` and `balance()` expose two figures:
+
+| Field | Meaning |
+|---|---|
+| `remaining_usd` | Credit free to commit to new keys: the balance minus what open keys hold. |
+| `total_remaining_usd` | What the user has left: `remaining_usd` plus the unspent part of open keys' reservations. Provisional while keys are open; it settles as they close. |
+
+Show users `total_remaining_usd` as it is: don't add or subtract the current key's `cost_usd`. `low_total_balance` is the matching recharge warning. `total_remaining_usd` is optional: an older server doesn't send it.
+
 ## Credentials
 
 The key's prefix picks the API surface, so there is nothing to configure:
@@ -75,11 +96,3 @@ FANTASTICO_KEY=ck-fant-… cargo run --example check -- --chat "Say hello"   # s
 ## Licence
 
 At your option, [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
-
-### Residual credit
-
-`config().balance` and `balance()` expose `total_remaining_usd` when the server supports it.
-It includes unspent reservations across all open keys, minus measured account-priced consumption.
-Display that value directly: do not add the current key's `cost_usd` again. `remaining_usd` keeps
-its original meaning (free to commit to new keys). The new fields are optional; an older server
-has no known total. `low_total_balance` is the matching recharge warning.
