@@ -1,0 +1,34 @@
+[package]
+name = "fantastico-sdk"
+version = "0.2.1"
+edition = "2021"
+rust-version = "1.82"
+description = "One prepaid credit for every major LLM: a Rust client for FANTASTICO that sends OpenAI-style chat completions to every major model from a single account, with spending caps and balance tracking"
+license = "MIT OR Apache-2.0"
+homepage = "https://fantastico.cc"
+repository = "https://github.com/Byte42-it/fantastico-sdk"
+documentation = "https://docs.rs/fantastico-sdk"
+readme = "README.md"
+keywords = ["llm", "ai", "openai-compatible", "chat-completions", "billing"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+[features]
+default = ["ureq"]
+# The built-in blocking HTTP transport (rustls). Without it, pass your own `Transport` to
+# `Fantastico::with_transport`.
+ureq = ["dep:ureq"]
+
+[dependencies]
+serde_json = "1"
+ureq = { version = "3", default-features = false, features = ["rustls"], optional = true }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "check"
+required-features = ["ureq"]
